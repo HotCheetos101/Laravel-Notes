@@ -1,0 +1,240 @@
+Laravel Sanctum provides a lightweight authentication system for SPAs (single page applications), 
+mobile applications, and simple token-based APIs. Here's a basic example to get you started with Laravel Sanctum:
+
+Step 1: Install Sanctum
+First, you need to install Sanctum via Composer:
+
+    composer require laravel/sanctum
+
+Step 2: Publish the Sanctum Configuration
+Next, you should publish the Sanctum configuration file using the vendor:publish Artisan command. 
+This command will publish the sanctum.php configuration file to your config directory:
+
+    php artisan vendor:publish --provider="Laravel\Sanctum\SanctumServiceProvider"
+
+Step 3: Run the Migrations
+Sanctum will create a table named personal_access_tokens to store API tokens. You should run your database migrations:
+
+    php artisan migrate
+
+Step 4: Configure Sanctum
+Add Sanctum's middleware to your api middleware group within your app/Http/Kernel.php file:
+
+    'api' => [
+    \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
+    'throttle:api',
+    \Illuminate\Routing\Middleware\SubstituteBindings::class,
+],
+
+
+Step 5: Setting Up the User Model
+Ensure that your App\Models\User model uses the HasApiTokens trait:
+
+    namespace App\Models;
+
+    use Laravel\Sanctum\HasApiTokens;
+    use Illuminate\Foundation\Auth\User as Authenticatable;
+
+    class User extends Authenticatable
+    {
+        use HasApiTokens, Notifiable;
+    }
+
+Step 6: Issuing API Tokens
+To issue a token to a user, you may use the createToken method on the User model instance. 
+The createToken method returns a Laravel\Sanctum\NewAccessToken instance, which contains the plain-text token:
+
+    use App\Models\User;
+    use Illuminate\Http\Request;
+
+    Route::post('/sanctum/token', function (Request $request) {
+        $user = User::where('email', $request->email)->first();
+
+        if (! $user || ! Hash::check($request->password, $user->password)) {
+            throw ValidationException::withMessages([
+                'email' => ['The provided credentials are incorrect.'],
+            ]);
+        }
+
+        return $user->createToken('token-name')->plainTextToken;
+    });
+
+Step 7: Protecting Routes
+To protect routes so that all incoming requests must be authenticated, you should attach the auth:sanctum middleware to your route:
+
+    use Illuminate\Support\Facades\Route;
+
+    Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
+        return $request->user();
+    });
+
+Step 8: Testing the API
+You can use tools like Postman or cURL to test your API.
+
+    curl -X POST http://your-app.test/sanctum/token \
+        -H "Content-Type: application/json" \
+        -d '{"email": "user@example.com", "password": "password"}'
+
+Using the Token
+You can then use this token to make authenticated requests to your protected routes:
+
+    curl -X GET http://your-app.test/user \
+        -H "Authorization: Bearer your-token-here"
+
+That's a basic setup to get started with Laravel Sanctum. You can explore more advanced features and configurations in the official documentation.
+
+
+
+
+
+LOGIN VIA SANCTUM
+
+
+Sure! Here's a step-by-step example of how to implement a login system using Laravel Sanctum.
+
+Step 1: Set Up Sanctum
+Make sure you have followed the initial steps to set up Sanctum as mentioned earlier.
+
+Step 2: Create Login Controller
+Create a new controller to handle the login process.
+
+    php artisan make:controller AuthController
+
+Step 3: Implement the Login Method
+Open the newly created AuthController.php and add the login method:
+
+            namespace App\Http\Controllers;
+
+            use Illuminate\Http\Request;
+            use Illuminate\Support\Facades\Hash;
+            use App\Models\User;
+            use Illuminate\Validation\ValidationException;
+
+            class AuthController extends Controller
+            {
+                public function login(Request $request)
+                {
+                    $request->validate([
+                        'email' => 'required|email',
+                        'password' => 'required',
+                    ]);
+
+                    $user = User::where('email', $request->email)->first();
+
+                    if (! $user || ! Hash::check($request->password, $user->password)) {
+                        throw ValidationException::withMessages([
+                            'email' => ['The provided credentials are incorrect.'],
+                        ]);
+                    }
+
+                    $token = $user->createToken('auth-token')->plainTextToken;
+
+                    return response()->json(['token' => $token]);
+                }
+            }
+
+Step 4: Define the Login Route
+Add a route in routes/api.php for the login endpoint:
+
+            use App\Http\Controllers\AuthController;
+
+            Route::post('/login', [AuthController::class, 'login']);
+
+Step 5: Protecting Routes
+Use the auth:sanctum middleware to protect your routes. Add this to your routes/api.php file:
+
+            Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
+                return $request->user();
+            });
+
+Step 6: Testing the Login
+You can test the login endpoint using tools like Postman or cURL.
+
+Log In to Obtain a Token
+
+            curl -X POST http://your-app.test/api/login \
+                -H "Content-Type: application/json" \
+                -d '{"email": "user@example.com", "password": "password"}'
+
+Use the Token to Access Protected Routes
+
+            curl -X GET http://your-app.test/api/user \
+                -H "Authorization: Bearer your-token-here"
+
+
+
+
+
+
+Full Example for Clarity
+Here is the complete setup in one place:
+
+Install Sanctum and Publish Configurations:
+
+composer require laravel/sanctum
+php artisan vendor:publish --provider="Laravel\Sanctum\SanctumServiceProvider"
+php artisan migrate
+
+Middleware Configuration in app/Http/Kernel.php:
+
+            'api' => [
+                \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
+                'throttle:api',
+                \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            ],
+
+
+User Model in App\Models\User.php:
+
+            namespace App\Models;
+
+            use Laravel\Sanctum\HasApiTokens;
+            use Illuminate\Foundation\Auth\User as Authenticatable;
+
+            class User extends Authenticatable
+            {
+                use HasApiTokens, Notifiable;
+            }
+
+Auth Controller in App\Http\Controllers\AuthController.php:
+
+
+            namespace App\Http\Controllers;
+
+            use Illuminate\Http\Request;
+            use Illuminate\Support\Facades\Hash;
+            use App\Models\User;
+            use Illuminate\Validation\ValidationException;
+
+            class AuthController extends Controller
+            {
+                public function login(Request $request)
+                {
+                    $request->validate([
+                        'email' => 'required|email',
+                        'password' => 'required',
+                    ]);
+
+                    $user = User::where('email', $request->email)->first();
+
+                    if (! $user || ! Hash::check($request->password, $user->password)) {
+                        throw ValidationException::withMessages([
+                            'email' => ['The provided credentials are incorrect.'],
+                        ]);
+                    }
+
+                    $token = $user->createToken('auth-token')->plainTextToken;
+
+                    return response()->json(['token' => $token]);
+                }
+            }
+
+Routes in routes/api.php:
+
+            use App\Http\Controllers\AuthController;
+
+            Route::post('/login', [AuthController::class, 'login']);
+
+            Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
+                return $request->user();
+            });
